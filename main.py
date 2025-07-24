@@ -92,14 +92,21 @@ def main(page: ft.Page):
             source_control.value = data.daily_quote.source
 
         page.update()
+    
+    def launch_update_data(_):
+        page.run_task(update_data)
+        print("data updated")
 
     def gesture_sensor_daemon_thread():
         import platform
         if platform.system() != "Linux":
             return
+        print("gesture_sensor")
         from gesture_sensor import GestureSensor
-        gs = GestureSensor(lambda _: update_data())
+        gs = GestureSensor(launch_update_data)
         gs.start()
+
+        
 
     page.run_task(update_data)
     page.run_thread(gesture_sensor_daemon_thread)
@@ -107,7 +114,7 @@ def main(page: ft.Page):
     # Header
     header = ft.Container(
         ft.Text(
-            "🌅 Daily Dashboard",
+            "Daily Dashboard",
             style="displayMedium",
             weight="bold",
             color=ft.Colors.BLUE_900,
@@ -122,7 +129,7 @@ def main(page: ft.Page):
         ),
     )
 
-    CARD_HEIGHT = 400
+    CARD_HEIGHT = 300
 
     # Calendar Section
     calendar_section = ft.Container(
