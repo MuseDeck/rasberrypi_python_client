@@ -2,7 +2,7 @@ import flet as ft
 from http_client import HTTP_Client
 from adptars import DataModel
 
-# from gesture_sensor import GestureSensor
+from gesture_sensor import GestureSensor
 
 
 def main(page: ft.Page):
@@ -11,6 +11,7 @@ def main(page: ft.Page):
     page.bgcolor = ft.Colors.BLUE_GREY_50
     page.padding = 40
     page.window.full_screen = True
+    page.theme = ft.Theme(font_family="Droid Sans Fallback")
 
     # Initialize controls first
     calendar_title_control = ft.Text(
@@ -115,7 +116,7 @@ def main(page: ft.Page):
         ),
     )
 
-    HEIGTH = 200
+    CARD_HEIGHT = 200
 
     # Calendar Section
     calendar_section = ft.Container(
@@ -128,7 +129,7 @@ def main(page: ft.Page):
         ),
         expand=True,
         margin=ft.margin.only(bottom=10),
-        height=HEIGTH
+        height=CARD_HEIGHT
     )
 
     recipe_section = ft.Container(
@@ -147,7 +148,7 @@ def main(page: ft.Page):
         ),
         expand=True,
         margin=ft.margin.only(bottom=10),
-        height=HEIGTH
+        height=CARD_HEIGHT
     )
 
     inspiration_section = ft.Container(
@@ -167,7 +168,7 @@ def main(page: ft.Page):
         ),
         expand=True,
         margin=ft.margin.only(bottom=10),
-        height=HEIGTH
+        height=CARD_HEIGHT
     )
 
     daily_quote_section = ft.Container(
@@ -193,7 +194,7 @@ def main(page: ft.Page):
         ),
         expand=True,
         margin=ft.margin.only(bottom=10),
-        height=HEIGTH
+        height=CARD_HEIGHT
     )
 
     page.add(
