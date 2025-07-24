@@ -1,6 +1,8 @@
 from pydantic import ValidationError
 from pydantic import BaseModel
 from typing import List
+from http_client import HTTP_Client
+from pprint import pprint
 
 class DailyQuote(BaseModel):
     author: str
@@ -8,35 +10,44 @@ class DailyQuote(BaseModel):
     source: str
 
 class Recipe(BaseModel):
-    name: str
+    content: str
+    keyword: List[str]
+    source: str
     title: str
-    ingredients: List[str]
-    instructions: str
+
+class Event(BaseModel):
+    description: str
+    time: str
+
+class Calendar(BaseModel):
+    title: str
+    events: List[Event]
+
+class Inspiration(BaseModel):
+    content: str
+    keyword: List[str]
+    source: str
+    title: str
 
 class DataModel(BaseModel):
     daily_quote: DailyQuote
     recipe: Recipe
+    calendar: Calendar
+    inspiration: Inspiration
 
 
-if __name__ == "__main__":
-    # simple test
-    json_data = {
-        "daily_quote": {
-            "author": "@路人威",
-            "quote": "眼泪无法洗去痛苦，但岁月可以抹去一切。",
-            "source": "网易云音乐",
-        },
-        "recipe": {
-            "ingredients": ["Tomatoes", "Eggs", "Scallions", "Salt"],
-            "instructions": "1. Scramble eggs 2. Stir-fry tomatoes 3. Combine",
-            "name": "Stir-fried Tomatoes with Eggs",
-            "title": "Today's Recommended Recipe",
-        },
-    }
+if __name__ == "__main__":    
     try:
+        http_client = HTTP_Client()
+        json_data = http_client.get()
+        pprint(json_data)
         data = DataModel(**json_data)
         print(data.daily_quote.author)
-        print(data.recipe.name)
-        print(data.recipe.ingredients)
+        print(data.recipe.title)
+        print(data.recipe.content)
+        print(data.calendar.title)
+        for event in data.calendar.events:
+            print(f"- {event.description} at {event.time}")
+        print(data.inspiration.content)
     except ValidationError as e:
         print("data valid error:", e)

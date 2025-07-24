@@ -1,6 +1,7 @@
 import requests
 import os
 import logging
+import aiohttp
 from pprint import pformat
 
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +19,11 @@ class HTTP_Client:
 
     def get(self):
         return requests.get(GET_API_URL).json()
+    
+    async def get_async(self):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(GET_API_URL) as response:
+                return await response.json()
 
 
 if __name__ == "__main__":
