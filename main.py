@@ -1,7 +1,8 @@
 import flet as ft
 from http_client import HTTP_Client
 from adptars import DataModel
-from gesture_sensor import GestureSensor
+
+# from gesture_sensor import GestureSensor
 
 
 def main(page: ft.Page):
@@ -89,8 +90,9 @@ def main(page: ft.Page):
         page.update()
 
     def gesture_sensor_daemon_thread():
-        gs = GestureSensor(lambda _: update_data())
-        gs.start()
+        # gs = GestureSensor(lambda _: update_data())
+        # gs.start()
+        ...
 
     page.run_task(update_data)
     page.run_thread(gesture_sensor_daemon_thread)
@@ -113,6 +115,8 @@ def main(page: ft.Page):
         ),
     )
 
+    HEIGTH = 200
+
     # Calendar Section
     calendar_section = ft.Container(
         calendar_secion_column,
@@ -122,8 +126,9 @@ def main(page: ft.Page):
         shadow=ft.BoxShadow(
             blur_radius=12, color=ft.Colors.BLUE_100, offset=ft.Offset(0, 4)
         ),
-        expand=1,
+        expand=True,
         margin=ft.margin.only(bottom=10),
+        height=HEIGTH
     )
 
     recipe_section = ft.Container(
@@ -131,8 +136,6 @@ def main(page: ft.Page):
             [
                 recipe_title_control,
                 recipe_content_control,
-                ft.Text("Ingredients:", weight="bold", color=ft.Colors.PINK_700),
-                ft.Text("Instructions:", weight="bold", color=ft.Colors.PINK_700),
             ],
             spacing=8,
         ),
@@ -142,8 +145,9 @@ def main(page: ft.Page):
         shadow=ft.BoxShadow(
             blur_radius=12, color=ft.Colors.PINK_100, offset=ft.Offset(0, 4)
         ),
-        expand=1,
+        expand=True,
         margin=ft.margin.only(bottom=10),
+        height=HEIGTH
     )
 
     inspiration_section = ft.Container(
@@ -161,8 +165,9 @@ def main(page: ft.Page):
         shadow=ft.BoxShadow(
             blur_radius=12, color=ft.Colors.TEAL_100, offset=ft.Offset(0, 4)
         ),
-        expand=1,
+        expand=True,
         margin=ft.margin.only(bottom=10),
+        height=HEIGTH
     )
 
     daily_quote_section = ft.Container(
@@ -186,19 +191,23 @@ def main(page: ft.Page):
         shadow=ft.BoxShadow(
             blur_radius=12, color=ft.Colors.AMBER_100, offset=ft.Offset(0, 4)
         ),
-        expand=1,
+        expand=True,
         margin=ft.margin.only(bottom=10),
+        height=HEIGTH
     )
 
     page.add(
         header,
-        ft.ResponsiveRow(
-            [calendar_section, recipe_section],
+        ft.Row(
+            [
+                calendar_section,
+                recipe_section,
+                inspiration_section,
+                daily_quote_section,
+            ],
             spacing=20,
-            run_spacing=20,
-        ),
-        ft.ResponsiveRow(
-            [inspiration_section, daily_quote_section], spacing=20, run_spacing=20
+            expand=True,
+            alignment=ft.MainAxisAlignment.START,
         ),
     )
 
