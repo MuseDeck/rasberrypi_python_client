@@ -17,7 +17,8 @@ assert broker_port is not None
 assert mqtt_username is not None
 assert mqtt_password is not None
 
-class MQTT:
+
+class MQTT_Client:
     def __init__(self):
         self.client = mqtt.Client()
         self.client.username_pw_set(mqtt_username, mqtt_password)
@@ -48,5 +49,6 @@ class MQTT:
 
 
 if __name__ == "__main__":
-    mqtt = MQTT()
+    # simple test
+    mqtt = MQTT_Client()
     mqtt.run()
