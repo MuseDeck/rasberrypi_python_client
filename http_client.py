@@ -29,4 +29,5 @@ class HTTP_Client:
 if __name__ == "__main__":
     # simple test
     http = HTTP_Client()
-    logging.info(pformat(http.get()))
+    result = http.get()
+    logging.info(pformat(result))

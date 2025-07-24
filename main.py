@@ -2,14 +2,13 @@ import flet as ft
 from http_client import HTTP_Client
 from adptars import DataModel
 
-from gesture_sensor import GestureSensor
 
 
 def main(page: ft.Page):
     page.title = "Daily Dashboard"
     page.scroll = ft.ScrollMode.AUTO
     page.bgcolor = ft.Colors.BLUE_GREY_50
-    page.padding = 40
+    page.padding = 10
     page.window.full_screen = True
     page.theme = ft.Theme(font_family="Droid Sans Fallback")
 
@@ -65,35 +64,42 @@ def main(page: ft.Page):
         result = await http_client.get_async()
         data = DataModel(**result)
 
-        # Update calendar section
-        calendar_title_control.value = data.calendar.title
-        calendar_secion_column.controls.clear()
-        calendar_secion_column.controls.append(calendar_title_control)
-        for event in data.calendar.events:
-            calendar_secion_column.controls.append(
-                ft.Text(
-                    f"{event.time} — {event.description}",
-                    size=16,
-                    color=ft.Colors.BLUE_GREY_900,
+        if data.calendar:
+            calendar_title_control.value = data.calendar.title
+            calendar_secion_column.controls.clear()
+            calendar_secion_column.controls.append(calendar_title_control)
+            for event in data.calendar.events:
+                calendar_secion_column.controls.append(
+                    ft.Text(
+                        f"{event.time} — {event.description}",
+                        size=16,
+                        color=ft.Colors.BLUE_GREY_900,
+                    )
                 )
-            )
 
-        # Update other sections
-        recipe_title_control.value = data.recipe.title
-        recipe_content_control.value = data.recipe.content
-        inspiration_title_control.value = data.inspiration.title
-        inspiration_content_control.value = data.inspiration.content
-        inspiration_source_control.value = data.inspiration.source
-        quote_control.value = data.daily_quote.quote
-        author_control.value = data.daily_quote.author
-        source_control.value = data.daily_quote.source
+        if data.recipe:
+            recipe_title_control.value = data.recipe.title
+            recipe_content_control.value = data.recipe.content
+
+        if data.inspiration:
+            inspiration_title_control.value = data.inspiration.title
+            inspiration_content_control.value = data.inspiration.content
+            inspiration_source_control.value = data.inspiration.source
+
+        if data.daily_quote:
+            quote_control.value = data.daily_quote.quote
+            author_control.value = data.daily_quote.author
+            source_control.value = data.daily_quote.source
 
         page.update()
 
     def gesture_sensor_daemon_thread():
-        # gs = GestureSensor(lambda _: update_data())
-        # gs.start()
-        ...
+        import platform
+        if platform.system() != "Linux":
+            return
+        from gesture_sensor import GestureSensor
+        gs = GestureSensor(lambda _: update_data())
+        gs.start()
 
     page.run_task(update_data)
     page.run_thread(gesture_sensor_daemon_thread)
@@ -116,7 +122,7 @@ def main(page: ft.Page):
         ),
     )
 
-    CARD_HEIGHT = 200
+    CARD_HEIGHT = 400
 
     # Calendar Section
     calendar_section = ft.Container(
@@ -129,7 +135,7 @@ def main(page: ft.Page):
         ),
         expand=True,
         margin=ft.margin.only(bottom=10),
-        height=CARD_HEIGHT
+        height=CARD_HEIGHT,
     )
 
     recipe_section = ft.Container(
@@ -148,7 +154,7 @@ def main(page: ft.Page):
         ),
         expand=True,
         margin=ft.margin.only(bottom=10),
-        height=CARD_HEIGHT
+        height=CARD_HEIGHT,
     )
 
     inspiration_section = ft.Container(
@@ -168,7 +174,7 @@ def main(page: ft.Page):
         ),
         expand=True,
         margin=ft.margin.only(bottom=10),
-        height=CARD_HEIGHT
+        height=CARD_HEIGHT,
     )
 
     daily_quote_section = ft.Container(
@@ -194,7 +200,7 @@ def main(page: ft.Page):
         ),
         expand=True,
         margin=ft.margin.only(bottom=10),
-        height=CARD_HEIGHT
+        height=CARD_HEIGHT,
     )
 
     page.add(
