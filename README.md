@@ -1,0 +1,2 @@
+ℹ️Reference document: https://flet.dev
+ℹ️Explanation: MQTT.PY is responsible for subscribing to the data of the online interface, while Main.PY is responsible for writing the Fleet UI to display on the Raspberry Pi screen
