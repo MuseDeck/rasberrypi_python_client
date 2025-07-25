@@ -1,2 +1,3 @@
-ℹ️Reference document: https://flet.dev
-ℹ️Explanation: MQTT.PY is responsible for subscribing to the data of the online interface, while Main.PY is responsible for writing the Fleet UI to display on the Raspberry Pi screen
+ℹ️Reference document of flet: https://flet.dev
+⚠️Picamera must be used in the main environment
+⚠️Ultralytics cannot share the same version of numpy with picamera due to version conflicts

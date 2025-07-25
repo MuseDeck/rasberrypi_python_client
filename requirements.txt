@@ -4,3 +4,4 @@ flet
 requests
 pydantic
 aiohttp
+pyzmq

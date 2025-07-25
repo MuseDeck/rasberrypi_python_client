@@ -1,0 +1,1 @@
+export https_proxy=http://192.168.244.159:7897 http_proxy=http://192.168.244.159:7897 all_proxy=socks5://192.168.244.159:7897
