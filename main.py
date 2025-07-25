@@ -111,14 +111,25 @@ def main(page: ft.Page):
     page.run_task(update_data)
     page.run_thread(gesture_sensor_daemon_thread)
 
-    # Header
+    # Add logo image at the top
+    logo_img = ft.Image(
+        src="logo.png",
+        width=120,
+        height=120,
+        fit=ft.ImageFit.CONTAIN,
+    )
+
+    # Header with title and logo (logo on the right, closer to text)
     header = ft.Container(
-        ft.Text(
-            "Muse Deck",
-            style="displayMedium",
-            weight="bold",
-            color=ft.Colors.BLUE_900,
-        ),
+        ft.Row([
+            ft.Text(
+                "Muse Deck",
+                style="displayMedium",
+                weight="bold",
+                color=ft.Colors.BLUE_900,
+            ),
+            logo_img,
+        ], spacing=8, alignment=ft.MainAxisAlignment.CENTER, vertical_alignment=ft.CrossAxisAlignment.CENTER),
         alignment=ft.alignment.center,
         padding=20,
         margin=ft.margin.only(bottom=10),
@@ -227,4 +238,4 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    ft.app(target=main)
+    ft.app(target=main, assets_dir="assets")
