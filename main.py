@@ -5,7 +5,7 @@ from adptars import DataModel
 
 
 def main(page: ft.Page):
-    page.title = "Daily Dashboard"
+    page.title = "Muse Deck"
     page.scroll = ft.ScrollMode.AUTO
     page.bgcolor = ft.Colors.BLUE_GREY_50
     page.padding = 10
@@ -114,7 +114,7 @@ def main(page: ft.Page):
     # Header
     header = ft.Container(
         ft.Text(
-            "Daily Dashboard",
+            "Muse Deck",
             style="displayMedium",
             weight="bold",
             color=ft.Colors.BLUE_900,
