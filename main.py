@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from http_client import HTTP_Client
 from mqtt_client import MQTT_Client
 from camera import Camera
+from gesture_sensor import GestureSensor
 import asyncio
 
 app = FastAPI()
@@ -62,3 +63,16 @@ async def face(websocket: WebSocket):
         if camera:
             del camera
     return
+
+@app.websocket("/gesture")
+async def gesture(websocket: WebSocket):
+    await websocket.accept()
+
+    async def on_message(x):
+        await websocket.send_text(x)
+
+    gesture_sensor = GestureSensor(on_message)
+    try:
+        await asyncio.create_task(gesture_sensor.run())
+    except Exception as e:
+        pass
