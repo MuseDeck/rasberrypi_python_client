@@ -17,9 +17,12 @@ if __name__ == "__main__":
     context = zmq.Context()
     socket = context.socket(zmq.REP)
     socket.bind("tcp://*:5555")
+    print("🚀launching...")
 
     while True:
-        image = socket.recv_pyobj()
+        image_expected_shape = socket.recv_pyobj()
+        image_data = socket.recv()
+        image = np.frombuffer(image_data, dtype=np.uint8).reshape(image_expected_shape)
         assert isinstance(image, np.ndarray), "Received image is not a numpy array"
         results = detector.predict(image)
         socket.send_pyobj(results)

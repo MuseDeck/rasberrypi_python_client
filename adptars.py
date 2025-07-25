@@ -35,6 +35,16 @@ class DataModel(BaseModel):
     calendar: Optional[Calendar] = None
     inspiration: Optional[Inspiration] = None
 
+class Face(BaseModel):
+    x: int
+    y: int
+    w: int
+    h: int
+
+class FaceDetectionResult(BaseModel):
+    face_count: int
+    faces: List[Face]
+
 
 if __name__ == "__main__":    
     try:

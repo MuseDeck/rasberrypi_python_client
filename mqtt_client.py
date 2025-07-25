@@ -19,13 +19,14 @@ assert mqtt_password is not None
 
 
 class MQTT_Client:
-    def __init__(self):
+    def __init__(self, on_message_func):
         self.client = mqtt.Client()
         self.client.username_pw_set(mqtt_username, mqtt_password)
         self.client.tls_set(
             ca_certs=None, certfile=None, keyfile=None, cert_reqs=ssl.CERT_REQUIRED
         )
         self.settings_topic = "sui-lan/config/update"
+        self.on_message_func = on_message_func
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
@@ -36,6 +37,7 @@ class MQTT_Client:
 
     def on_message(self, client, userdata, msg):
         logging(f"🧑received [{msg.topic}]: {msg.payload.decode()}")
+        self.on_message_func()
 
     def publish_message(self, topic, message):
         self.client.publish(topic, message)
