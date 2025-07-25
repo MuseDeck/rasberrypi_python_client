@@ -1,7 +1,10 @@
 from picamera2 import Picamera2
 import cv2
 import numpy as np
-
+from json import loads
+from websockets.sync.client import connect
+from time import sleep
+from adptars import FaceDetectionResult
 
 class Camera:
     def __init__(self):
@@ -25,7 +28,22 @@ class Camera:
         image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
         return image_bgr
 
+    def predict_face(self, face: np.ndarray):
+        with connect("ws://localhost:8000/ws") as websocket:
+            _, img_encoded = cv2.imencode(".jpg", face)
+            img_bytes = img_encoded.tobytes()
+            websocket.send(img_bytes)
+            result = loads(websocket.recv())
+            result = FaceDetectionResult(**result)
+        return result
+
 
 if __name__ == "__main__":
     camera = Camera()
-    camera.capture_image()
+    while True:
+        result = camera.predict_face(camera.capture_image())
+        if result.face_count > 0:
+            for face in result.faces:
+                print(face.w * face.h,end="\t")
+            print()
+        sleep(0.1)
