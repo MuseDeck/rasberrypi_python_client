@@ -1,7 +1,7 @@
 import flet as ft
 from http_client import HTTP_Client
 from adptars import DataModel
-
+from camera import Camera
 
 
 def main(page: ft.Page):
@@ -106,10 +106,16 @@ def main(page: ft.Page):
         gs = GestureSensor(launch_update_data)
         gs.start()
 
-        
+    def people_detection_daemon_thread():
+        camera = Camera()
+        while True:
+            image = camera.picam2.capture_image()
+            result = camera.predict_face(image)
+            print(result)
 
     page.run_task(update_data)
     page.run_thread(gesture_sensor_daemon_thread)
+    page.run_thread(people_detection_daemon_thread)
 
     # Add logo image at the top
     logo_img = ft.Image(
