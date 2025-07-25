@@ -30,11 +30,9 @@ async def websocket_endpoint(websocket: WebSocket):
         asyncio.run(websocket.send_text(""))
 
     mqtt = MQTT_Client(on_message)
-    mqtt.run()
 
     try:
-        while True:
-            data = await websocket.receive_text()
+        await asyncio.to_thread(mqtt.run)
     except Exception as e:
         pass
     finally:
