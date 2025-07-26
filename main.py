@@ -1,5 +1,4 @@
 import flet as ft
-import logging
 from http_client import HTTP_Client
 from adptars import DataModel
 from camera import Camera
@@ -14,7 +13,28 @@ def main(page: ft.Page):
     page.window.full_screen = True
     page.theme = ft.Theme(font_family="Droid Sans Fallback")
 
-    # Initialize controls first
+    def route_change(e):
+        page.views.clear()
+        if page.route == "/overview" or page.route == "/":
+            page.views.append(
+                ft.View(
+                    "/overview",
+                    controls=[
+                        header,
+                        ft.Row(
+                            [calendar_section, recipe_section, daily_quote_section],
+                            spacing=20,
+                            expand=True,
+                            alignment=ft.MainAxisAlignment.START,
+                        ),
+                    ],
+                    bgcolor=ft.Colors.BLUE_GREY_50,
+                    padding=10,
+                    scroll=ft.ScrollMode.AUTO,
+                )
+            )
+        page.update()
+
     calendar_title_control = ft.Text(
         "Calendar Title",
         style="titleLarge",
@@ -39,22 +59,6 @@ def main(page: ft.Page):
         weight="bold",
         size=18,
         color=ft.Colors.PINK_900,
-    )
-
-    inspiration_title_control = ft.Text(
-        "inspiration_title",
-        style="titleLarge",
-        weight="bold",
-        color=ft.Colors.TEAL_700,
-    )
-    inspiration_content_control = ft.Text(
-        f"“inspiration_content”",
-        italic=True,
-        size=16,
-        color=ft.Colors.TEAL_900,
-    )
-    inspiration_source_control = ft.Text(
-        f"Source: inspiration_source", size=12, color=ft.Colors.TEAL_400
     )
 
     quote_control = ft.Text(f"quote", italic=True, size=16, color=ft.Colors.AMBER_900)
@@ -131,7 +135,6 @@ def main(page: ft.Page):
     page.run_thread(gesture_sensor_daemon_thread)
     page.run_thread(face_detection_daemon_thread)
 
-    # Add logo image at the top
     logo_img = ft.Image(
         src="logo.png",
         width=120,
@@ -139,7 +142,6 @@ def main(page: ft.Page):
         fit=ft.ImageFit.CONTAIN,
     )
 
-    # Header with title and logo (logo on the right, closer to text)
     header = ft.Container(
         ft.Row(
             [
@@ -167,7 +169,6 @@ def main(page: ft.Page):
 
     CARD_HEIGHT = 300
 
-    # Calendar Section
     calendar_section = ft.Container(
         calendar_secion_column,
         padding=20,
@@ -240,15 +241,8 @@ def main(page: ft.Page):
         ],
     )
 
-    page.add(
-        header,
-        ft.Row(
-            [calendar_section, recipe_section, daily_quote_section],
-            spacing=20,
-            expand=True,
-            alignment=ft.MainAxisAlignment.START,
-        ),
-    )
+    page.on_route_change = route_change
+    page.go("/overview")
 
 
 if __name__ == "__main__":
