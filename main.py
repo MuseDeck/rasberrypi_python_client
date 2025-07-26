@@ -3,11 +3,12 @@ import logging
 from http_client import HTTP_Client
 from mqtt_client import MQTT_Client
 from adptars import DataModel
-from camera import Camera
 from time import sleep
 from typing import List
 from adptars import DailyQuote
 from db import DB
+from camera import predict_face
+import cv2
 
 OVERVIEW_ROUTE = "/overview"
 FAVORITES_ROUTE = "/favorites"
@@ -158,8 +159,18 @@ def main(page: ft.Page):
         settings_action=lambda: page.run_thraed(update_data),
     )
     page.run_thread(mqtt_client.run)
-    mqtt_client.run
 
+    # def camera_thread(callback):
+    #     cap = cv2.VideoCapture(0)
+    #     while cap.isOpened():
+    #         ret, frame = cap.read()
+    #         result = predict_face(frame)
+    #         if result.face_count == 0:
+    #             continue
+    #         max_face = max(result.faces, key=lambda x: x.w * x.h)
+    #         if max_face.w * max_face.h > 10000:
+    #             callback()
+    
     def update_data():
         result = http_client.get()
         data = DataModel(**result)
@@ -193,21 +204,15 @@ def main(page: ft.Page):
 
         page.update()
 
-    daily_quote_list: List[DailyQuote] = []
-    daily_quote_list_index = -1
     db = DB()
 
-    def safe_get_quote(index):
-        if 0 <= index < len(daily_quote_list):
-            return daily_quote_list[index]
-        return None
-
     def on_gesture_changed(gesture_name):
+        nonlocal detected_flag
         global OVERVIEW_ROUTE, FAVORITES_ROUTE
         if banner.open:
             page.close(banner)
+            detected_flag = False
             return
-        nonlocal daily_quote_list, daily_quote_list_index
         logging.info(f"Gesture: {gesture_name}")
 
         if gesture_name == "Left":
@@ -223,39 +228,13 @@ def main(page: ft.Page):
         else:
             if page.route == OVERVIEW_ROUTE:
                 match gesture_name:
-                    # case "Up":
-                    #     daily_quote_list_index -= 1
-                    #     daily_quote = safe_get_quote(daily_quote_list_index)
-                    #     if daily_quote is not None:
-                    #         quote_control.value = daily_quote.quote
-                    #         author_control.value = daily_quote.author
-                    #         source_control.value = daily_quote.source
-                    #     else:
-                    #         daily_quote_list_index += 1
-                    #         return
-                    # case "Down":
-                    #     if daily_quote_list_index == -1:
-                    #         data = DataModel(**http_client.get())
-                    #         if daily_quote := data.daily_quote:
-                    #             quote_control.value = data.daily_quote.quote
-                    #             author_control.value = data.daily_quote.author
-                    #             source_control.value = data.daily_quote.source
-                    #             daily_quote_list.append(daily_quote)
-                    #             logging.info(daily_quote_list)
-                    #         else:
-                    #             quote_control.visible = False
-                    #     else:
-                    #         daily_quote_list_index += 1
-                    #         daily_quote = safe_get_quote(daily_quote_list_index)
-                    #         if daily_quote is not None:
-                    #             quote_control.value = daily_quote.quote
-                    #             author_control.value = daily_quote.author
-                    #             source_control.value = daily_quote.source
-                    #         else:
-                    #             daily_quote_list_index -= 1
                     case "Forward":
                         logging.info("🤡收藏")
-                        quote = daily_quote_list[daily_quote_list_index]
+                        quote = DailyQuote(
+                            quote=quote_control.value,
+                            author=author_control.value,
+                            source=source_control.value,
+                        )
                         db.add_daily_quote_to_favorite(quote)
                         page.open(ft.SnackBar(ft.Text("收藏成功")))
                         page.update()
@@ -276,28 +255,67 @@ def main(page: ft.Page):
 
     def face_detection_daemon_thread():
         nonlocal detected_flag
-        camera = Camera()
-        FACE_AREA = 100000
+        cap = cv2.VideoCapture(0)
+        i = 0
         while True:
             if not banner.open:
+                detected_flag = False
+                i = 0
                 continue
-            sleep(3)
-            result = camera.predict_face(camera.capture_image())
-            if result.face_count > 0:
-                max_face = max(result.faces, key=lambda x: x.w * x.h)
-                max_face_area = max_face.w * max_face.h
-                if max_face_area > FACE_AREA:
-                    logging.info("Detected face")
-                    detected_flag = True
+            i += 1
+            if (i > 6 and not detected_flag):
+                i = 0
+                page.close(banner)
+            if cap.isOpened() and banner.open:
+                ret, frame = cap.read()
+                result = predict_face(frame)
+                if result.face_count == 0:
+                    # continue
+                    logging.info("Face not detected")
+                    logging.info(i)
+                    logging.info(detected_flag)
                 else:
-                    logging.info("No Detecting face")
-                    if banner.open and (not detected_flag):
-                        page.close(banner)
-                        detected_flag = False
-            else:
-                logging.info("No Detecting face")
-                if banner.open:
-                    page.close(banner)
+                    max_face = max(result.faces, key=lambda x: x.w * x.h)
+                    if max_face.w * max_face.h > 25000:
+                        detected_flag = True
+                        i = 0
+                        logging.info("Face detected!!!⚠️")
+                    else:
+                        logging.info("Face not detected")
+                        logging.info(i)
+                        logging.info(detected_flag)
+                sleep(0.5)
+
+        # while cap.isOpened():
+        #     ret, frame = cap.read()
+        #     result = predict_face(frame)
+        #     if result.face_count == 0:
+        #         continue
+        #     max_face = max(result.faces, key=lambda x: x.w * x.h)
+        #     if max_face.w * max_face.h > 10000:
+        #         detected_flag = True
+        #     sleep(0.1)
+        
+        # while True:
+        #     if not banner.open:
+        #         continue
+        #     result = predict_face()
+        #     if result.face_count > 0:
+        #         max_face = max(result.faces, key=lambda x: x.w * x.h)
+        #         max_face_area = max_face.w * max_face.h
+        #         logging.info
+        #         if max_face_area > FACE_AREA:
+        #             logging.info("Detected face")
+        #             detected_flag = True
+        #         else:
+        #             logging.info("No Detecting face")
+        #             if banner.open and (not detected_flag):
+        #                 page.close(banner)
+        #                 detected_flag = False
+        #     else:
+        #         logging.info("No Detecting face")
+        #         if banner.open:
+        #             page.close(banner)
 
     logo_img = ft.Image(
         src="logo.png",
