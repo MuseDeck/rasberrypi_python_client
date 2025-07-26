@@ -33,7 +33,7 @@ def main(page: ft.Page):
         color=ft.Colors.PINK_700,
     )
     recipe_content_control = ft.Text(
-        f"🍳 recipe_name",
+        f"recipe_name",
         weight="bold",
         size=18,
         color=ft.Colors.PINK_900,
@@ -244,4 +244,4 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    ft.app(target=main, assets_dir="assets")
+    ft.app(target=main, assets_dir="assets",port=9000)
