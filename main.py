@@ -5,6 +5,7 @@ from adptars import DataModel
 from camera import Camera
 from time import sleep
 
+
 def main(page: ft.Page):
     page.title = "Muse Deck"
     page.scroll = ft.ScrollMode.AUTO
@@ -95,17 +96,15 @@ def main(page: ft.Page):
         page.update()
 
     def launch_update_data(_):
+        page.close(banner)
         page.run_task(update_data)
-        print("data updated")
-
+        
     def gesture_sensor_daemon_thread():
         import platform
-
         if platform.system() != "Linux":
             return
         print("gesture_sensor")
         from gesture_sensor import GestureSensor
-
         gs = GestureSensor(launch_update_data)
         gs.start()
 
@@ -118,9 +117,14 @@ def main(page: ft.Page):
                 max_face = max(result.faces, key=lambda x: x.w * x.h)
                 max_face_area = max_face.w * max_face.h
                 if max_face_area > FACE_AREA:
-                    dlg_modal.open = True
-                    dlg_modal.update()
-            
+                    model = DataModel(**http_client.get())
+                    inspiration_banner_column.controls = [
+                        ft.Text(model.inspiration.title, size=20),
+                        ft.Text(model.inspiration.content, size=20),
+                        ft.Text(model.inspiration.source, size=20),
+                    ]
+                    page.open(banner)
+
             sleep(0.1)
 
     page.run_task(update_data)
@@ -222,16 +226,24 @@ def main(page: ft.Page):
         height=CARD_HEIGHT,
     )
 
-    dlg_modal = ft.AlertDialog(
-        modal=True,
-        title=ft.Text("Please confirm"),
-        content=ft.Text("Do you really want to delete all those files?"),
+    banner = ft.Banner(
+        bgcolor=ft.Colors.CYAN_500,
+        leading=ft.Icon(ft.Icons.BUBBLE_CHART, color=ft.Colors.WHITE70, size=40),
+        content=(
+            inspiration_banner_column := ft.Column(
+                controls=[],
+                spacing=10,
+            )
+        ),
+        actions=[
+            ft.TextButton(text="Retry", on_click=lambda _: page.update()),
+        ],
     )
 
     page.add(
         header,
         ft.Row(
-            [calendar_section, recipe_section, daily_quote_section, dlg_modal],
+            [calendar_section, recipe_section, daily_quote_section],
             spacing=20,
             expand=True,
             alignment=ft.MainAxisAlignment.START,
