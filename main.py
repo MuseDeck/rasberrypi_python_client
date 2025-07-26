@@ -1,4 +1,5 @@
 import flet as ft
+import logging
 from http_client import HTTP_Client
 from adptars import DataModel
 from camera import Camera
@@ -33,6 +34,10 @@ def main(page: ft.Page):
                     scroll=ft.ScrollMode.AUTO,
                 )
             )
+            page.run_task(update_data)
+            page.run_thread(gesture_sensor_daemon_thread, page)
+            page.run_thread(face_detection_daemon_thread)
+        
         page.update()
 
     calendar_title_control = ft.Text(
@@ -102,14 +107,15 @@ def main(page: ft.Page):
     def launch_update_data(_):
         page.close(banner)
         page.run_task(update_data)
-        
-    def gesture_sensor_daemon_thread():
+
+    def gesture_sensor_daemon_thread(page):
+        logging.info("gesture_sensor init")
         import platform
         if platform.system() != "Linux":
             return
-        print("gesture_sensor")
+        logging.info("gesture_sensor start")
         from gesture_sensor import GestureSensor
-        gs = GestureSensor(launch_update_data)
+        gs = GestureSensor(lambda _: launch_update_data(None))
         gs.start()
 
     def face_detection_daemon_thread():
@@ -127,13 +133,11 @@ def main(page: ft.Page):
                         ft.Text(model.inspiration.content, size=20),
                         ft.Text(model.inspiration.source, size=20),
                     ]
+                    # 更新banner内容后需要更新页面
+                    page.update()
                     page.open(banner)
 
             sleep(0.1)
-
-    page.run_task(update_data)
-    page.run_thread(gesture_sensor_daemon_thread)
-    page.run_thread(face_detection_daemon_thread)
 
     logo_img = ft.Image(
         src="logo.png",
@@ -240,6 +244,9 @@ def main(page: ft.Page):
             ft.TextButton(text="Retry", on_click=lambda _: page.update()),
         ],
     )
+
+    # 将banner添加到页面中，解决"banner must be added into page first"错误
+    page.overlay.append(banner)
 
     page.on_route_change = route_change
     page.go("/overview")
