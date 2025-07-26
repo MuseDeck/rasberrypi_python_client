@@ -18,6 +18,7 @@ def main(page: ft.Page):
 
     def route_change(e):
         page.views.clear()
+        title_control.value = f"Muse Deck {page.route.strip('/')}"
         if page.route == "/overview":
             page.views.append(
                 ft.View(
@@ -39,6 +40,48 @@ def main(page: ft.Page):
             page.run_task(update_data)
             page.run_thread(gesture_sensor_daemon_thread, page)
             page.run_thread(face_detection_daemon_thread)
+
+        if page.route == "/pen":
+            page.views.append(
+                ft.View(
+                    "/pen",
+                    controls=[
+                        header,
+                        ft.Row(
+                            [
+                                
+                            ],
+                            spacing=20,
+                            expand=True,
+                            alignment=ft.MainAxisAlignment.START,
+                        ),
+                    ],
+                    bgcolor=ft.Colors.BLUE_GREY_50,
+                    padding=10,
+                    scroll=ft.ScrollMode.AUTO,
+                )
+            )
+        
+        if page.route == "/favorites":
+            page.views.append(
+                ft.View(
+                    "/favorites",
+                    controls=[
+                        header,
+                        ft.Row(
+                            [
+                                
+                            ],
+                            spacing=20,
+                            expand=True,
+                            alignment=ft.MainAxisAlignment.START,
+                        ),
+                    ],
+                    bgcolor=ft.Colors.BLUE_GREY_50,
+                    padding=10,
+                    scroll=ft.ScrollMode.AUTO,
+                )
+            )
 
         page.update()
 
@@ -138,27 +181,47 @@ def main(page: ft.Page):
         if banner.open:
             page.close(banner)
             return
+        
         logging.info(f"Gesture: {gesture_name}")
+        
+        match gesture_name:
+            case "Right":
+                match page.route:
+                    case "/overview":
+                        page.go("/pen")
+                        return
+                    case "/pen":
+                        page.go("/favorites")
+                        return
+                    case "/favorites":
+                        page.go("/overview")
+                        return
+            
+            case "Left":
+                match page.route:
+                    case "/overview":
+                        page.go("/favorites")
+                        return
+                    case "/favorites":
+                        page.go("/pen")
+                        return
+                    case "/pen":
+                        page.go("/overview")
+                        return
 
-        if page.route == "/overview":
-            match gesture_name:
-                case "Up":
-                    data = DataModel(**http_client.get())
-                    if data.daily_quote:
-                        quote_control.value = data.daily_quote.quote
-                        author_control.value = data.daily_quote.author
-                        source_control.value = data.daily_quote.source
-                    else:
-                        quote_control.visible = False
-                    page.update()
-                case "Down":
-                    pass
-                case "Forward":
-                    pass
-                case "Left":
-                    pass
-                case "Right":
-                    pass
+
+        match gesture_name:
+            case "Up":
+                pass
+            case "Down":
+                data = DataModel(**http_client.get())
+                if data.daily_quote:
+                    quote_control.value = data.daily_quote.quote
+                    author_control.value = data.daily_quote.author
+                    source_control.value = data.daily_quote.source
+                else:
+                    quote_control.visible = False
+                page.update()
 
         page.run_task(update_data)
 
@@ -213,7 +276,7 @@ def main(page: ft.Page):
     header = ft.Container(
         ft.Row(
             [
-                ft.Text(
+                title_control:=ft.Text(
                     "Muse Deck",
                     style="displayMedium",
                     weight="bold",
