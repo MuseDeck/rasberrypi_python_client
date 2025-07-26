@@ -1,14 +1,16 @@
 import flet as ft
 import logging
-import asyncio
 from http_client import HTTP_Client
 from mqtt_client import MQTT_Client
 from adptars import DataModel
 from camera import Camera
-from time import sleep, time
+from time import sleep
 from typing import List
 from adptars import DailyQuote
 from db import DB
+
+OVERVIEW_ROUTE = "/overview"
+FAVORITES_ROUTE = "/favorites"
 
 
 def main(page: ft.Page):
@@ -19,13 +21,43 @@ def main(page: ft.Page):
     page.window.full_screen = True
     page.theme = ft.Theme(font_family="Droid Sans Fallback")
 
+    def quote_card(quote: DailyQuote):
+        return ft.Card(
+            content=ft.Container(
+                ft.Column(
+                    [
+                        ft.Text(
+                            quote.quote,
+                            italic=True,
+                            size=16,
+                            color=ft.Colors.AMBER_900,
+                        ),
+                        ft.Text(
+                            f"- {quote.author}",
+                            size=14,
+                            color=ft.Colors.AMBER_700,
+                        ),
+                        ft.Text(
+                            f"Source: {quote.source}",
+                            size=12,
+                            color=ft.Colors.AMBER_400,
+                        ),
+                    ],
+                    spacing=8,
+                ),
+                padding=20,
+            ),
+            expand=True,
+        )
+
     def route_change(e):
         page.views.clear()
-        title_control.value = f"Muse Deck {page.route.strip('/')}"
-        if page.route == "/overview":
+        title_control.value = "Muse Deck"
+        if page.route == OVERVIEW_ROUTE:
+            logging.info("overview route")
             page.views.append(
                 ft.View(
-                    "/overview",
+                    OVERVIEW_ROUTE,
                     controls=[
                         header,
                         ft.Row(
@@ -40,65 +72,20 @@ def main(page: ft.Page):
                     scroll=ft.ScrollMode.AUTO,
                 )
             )
-            page.run_task(update_data)
+            page.run_thread(update_data)
             page.run_thread(gesture_sensor_daemon_thread, page)
             page.run_thread(face_detection_daemon_thread)
 
-        if page.route == "/pen":
-            page.views.append(
-                ft.View(
-                    "/pen",
-                    controls=[
-                        header,
-                        ft.Row(
-                            [],
-                            spacing=20,
-                            expand=True,
-                            alignment=ft.MainAxisAlignment.START,
-                        ),
-                    ],
-                    bgcolor=ft.Colors.BLUE_GREY_50,
-                    padding=10,
-                    scroll=ft.ScrollMode.AUTO,
-                )
-            )
-
-        if page.route == "/favorites":
+        if page.route == FAVORITES_ROUTE:
+            logging.info("favorites route")
             quotes = db.get_all_daily_quote_to_favorite()
-            logging.info(quotes)
             page.views.append(
                 ft.View(
-                    "/favorites",
+                    FAVORITES_ROUTE,
                     controls=[
                         header,
                         ft.Row(
-                            [ft.Card(
-                                content=ft.Container(
-                                    ft.Column(
-                                        [
-                                            ft.Text(
-                                                quote.quote,
-                                                italic=True,
-                                                size=16,
-                                                color=ft.Colors.AMBER_900,
-                                            ),
-                                            ft.Text(
-                                                f"- {quote.author}",
-                                                size=14,
-                                                color=ft.Colors.AMBER_700,
-                                            ),
-                                            ft.Text(
-                                                f"Source: {quote.source}",
-                                                size=12,
-                                                color=ft.Colors.AMBER_400,
-                                            ),
-                                        ],
-                                        spacing=8,
-                                    ),
-                                    padding=20,
-                                ),
-                                expand=True,
-                            ) for quote in quotes],
+                            [quote_card(quote) for quote in quotes],
                             spacing=20,
                             expand=True,
                             alignment=ft.MainAxisAlignment.START,
@@ -157,22 +144,24 @@ def main(page: ft.Page):
                 color=ft.Colors.BLUE_GREY_900,
             ),
         ]
-        page.update()
-        page.open(banner)
+        if not detected_flag:
+            page.update()
+            page.open(banner)
 
     quote_control = ft.Text(f"quote", italic=True, size=16, color=ft.Colors.AMBER_900)
     author_control = ft.Text(f"- author", size=14, color=ft.Colors.AMBER_700)
     source_control = ft.Text(f"Source: source", size=12, color=ft.Colors.AMBER_400)
     http_client = HTTP_Client()
+
     mqtt_client = MQTT_Client(
         inspiration_action=lambda: page.run_task(popover_insprition_card),
-        settings_action=lambda: page.run_task(update_data),
+        settings_action=lambda: page.run_thraed(update_data),
     )
     page.run_thread(mqtt_client.run)
     mqtt_client.run
 
-    async def update_data():
-        result = await http_client.get_async()
+    def update_data():
+        result = http_client.get()
         data = DataModel(**result)
 
         if data.calendar:
@@ -208,82 +197,68 @@ def main(page: ft.Page):
     daily_quote_list_index = -1
     db = DB()
 
+    def safe_get_quote(index):
+        if 0 <= index < len(daily_quote_list):
+            return daily_quote_list[index]
+        return None
+
     def on_gesture_changed(gesture_name):
+        global OVERVIEW_ROUTE, FAVORITES_ROUTE
         if banner.open:
             page.close(banner)
             return
         nonlocal daily_quote_list, daily_quote_list_index
         logging.info(f"Gesture: {gesture_name}")
 
-        match gesture_name:
-            case "Right":
-                match page.route:
-                    case "/overview":
-                        page.go("/pen")
-                        return
-                    case "/pen":
-                        page.go("/favorites")
-                        return
-                    case "/favorites":
-                        page.go("/overview")
-                        return
-
-            case "Left":
-                match page.route:
-                    case "/overview":
-                        page.go("/favorites")
-                        return
-                    case "/favorites":
-                        page.go("/pen")
-                        return
-                    case "/pen":
-                        page.go("/overview")
-                        return
-
-        if page.route == "/overview":
-            match gesture_name:
-                case "Up":
-                    daily_quote_list_index -= 1
-                    try:
-                        daily_quote = daily_quote_list[daily_quote_list_index]
-                    except IndexError:
-                        daily_quote_list_index += 1
-                        return
-                    quote_control.value = daily_quote.quote
-                    author_control.value = daily_quote.author
-                    source_control.value = daily_quote.source
-
-                case "Down":
-                    if daily_quote_list_index == -1:
-                        data = DataModel(**http_client.get())
-                        if daily_quote := data.daily_quote:
-                            quote_control.value = data.daily_quote.quote
-                            author_control.value = data.daily_quote.author
-                            source_control.value = data.daily_quote.source
-                            daily_quote_list.append(daily_quote)
-                            logging.info(daily_quote_list)
-                        else:
-                            quote_control.visible = False
-                    else:
-                        daily_quote_list_index += 1
-                        try:
-                            daily_quote = daily_quote_list[daily_quote_list_index]
-                            quote_control.value = daily_quote.quote
-                            author_control.value = daily_quote.author
-                            source_control.value = daily_quote.source
-                        except IndexError:
-                            daily_quote_list_index -= 1
-
-                case "Forward":
-                    # 收藏
-                    quote = daily_quote_list[daily_quote_list_index]
-                    db.add_daily_quote_to_favorite(quote)
-                    page.open(ft.SnackBar(ft.Text("收藏成功")))
-                    page.update()
-
-            page.update()
-
-        page.run_task(update_data)
+        if gesture_name == "Left":
+            if page.route == FAVORITES_ROUTE:
+                page.go(OVERVIEW_ROUTE)
+            else:
+                page.go(FAVORITES_ROUTE)
+        elif gesture_name == "Right":
+            if page.route == OVERVIEW_ROUTE:
+                page.go(FAVORITES_ROUTE)
+            else:
+                page.go(OVERVIEW_ROUTE)
+        else:
+            if page.route == OVERVIEW_ROUTE:
+                match gesture_name:
+                    # case "Up":
+                    #     daily_quote_list_index -= 1
+                    #     daily_quote = safe_get_quote(daily_quote_list_index)
+                    #     if daily_quote is not None:
+                    #         quote_control.value = daily_quote.quote
+                    #         author_control.value = daily_quote.author
+                    #         source_control.value = daily_quote.source
+                    #     else:
+                    #         daily_quote_list_index += 1
+                    #         return
+                    # case "Down":
+                    #     if daily_quote_list_index == -1:
+                    #         data = DataModel(**http_client.get())
+                    #         if daily_quote := data.daily_quote:
+                    #             quote_control.value = data.daily_quote.quote
+                    #             author_control.value = data.daily_quote.author
+                    #             source_control.value = data.daily_quote.source
+                    #             daily_quote_list.append(daily_quote)
+                    #             logging.info(daily_quote_list)
+                    #         else:
+                    #             quote_control.visible = False
+                    #     else:
+                    #         daily_quote_list_index += 1
+                    #         daily_quote = safe_get_quote(daily_quote_list_index)
+                    #         if daily_quote is not None:
+                    #             quote_control.value = daily_quote.quote
+                    #             author_control.value = daily_quote.author
+                    #             source_control.value = daily_quote.source
+                    #         else:
+                    #             daily_quote_list_index -= 1
+                    case "Forward":
+                        logging.info("🤡收藏")
+                        quote = daily_quote_list[daily_quote_list_index]
+                        db.add_daily_quote_to_favorite(quote)
+                        page.open(ft.SnackBar(ft.Text("收藏成功")))
+                        page.update()
 
     def gesture_sensor_daemon_thread(page):
         logging.info("gesture_sensor init")
@@ -297,39 +272,44 @@ def main(page: ft.Page):
         gs = GestureSensor(lambda x: on_gesture_changed(x))
         gs.start()
 
+    detected_flag = False
+
     def face_detection_daemon_thread():
+        nonlocal detected_flag
         camera = Camera()
         FACE_AREA = 100000
         while True:
             if not banner.open:
                 continue
-            sleep(5)
+            sleep(3)
             result = camera.predict_face(camera.capture_image())
             if result.face_count > 0:
                 max_face = max(result.faces, key=lambda x: x.w * x.h)
                 max_face_area = max_face.w * max_face.h
                 if max_face_area > FACE_AREA:
                     logging.info("Detected face")
+                    detected_flag = True
                 else:
                     logging.info("No Detecting face")
-                    if banner.open:
+                    if banner.open and (not detected_flag):
                         page.close(banner)
+                        detected_flag = False
             else:
                 logging.info("No Detecting face")
                 if banner.open:
                     page.close(banner)
-            sleep(5)
 
     logo_img = ft.Image(
         src="logo.png",
-        width=120,
-        height=120,
+        width=60,
+        height=60,
         fit=ft.ImageFit.CONTAIN,
     )
 
     header = ft.Container(
         ft.Row(
             [
+                logo_img,
                 title_control := ft.Text(
                     "Muse Deck",
                     style="displayMedium",
@@ -337,7 +317,6 @@ def main(page: ft.Page):
                     color=ft.Colors.BLUE_900,
                     size=32,
                 ),
-                logo_img,
             ],
             alignment=ft.MainAxisAlignment.CENTER,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -428,8 +407,8 @@ def main(page: ft.Page):
     page.overlay.append(banner)
 
     page.on_route_change = route_change
-    page.go("/overview")
+    page.go(OVERVIEW_ROUTE)
 
 
 if __name__ == "__main__":
-    ft.app(target=main, assets_dir="assets", port=9000)
+    ft.app(target=main, assets_dir="assets")
