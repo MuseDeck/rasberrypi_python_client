@@ -2,6 +2,8 @@ import flet as ft
 from http_client import HTTP_Client
 from adptars import DataModel
 from camera import Camera
+from time import sleep
+import logging
 
 
 def main(page: ft.Page):
@@ -80,42 +82,56 @@ def main(page: ft.Page):
         if data.recipe:
             recipe_title_control.value = data.recipe.title
             recipe_content_control.value = data.recipe.content
+            recipe_section.visible = True
+        else:
+            recipe_section.visible = False
 
-        if data.inspiration:
-            inspiration_title_control.value = data.inspiration.title
-            inspiration_content_control.value = data.inspiration.content
-            inspiration_source_control.value = data.inspiration.source
+        # if data.inspiration:
+        #     inspiration_title_control.value = data.inspiration.title
+        #     inspiration_content_control.value = data.inspiration.content
+        #     inspiration_source_control.value = data.inspiration.source
+        # else:
+        #     inspiration_section.visible = False
 
         if data.daily_quote:
             quote_control.value = data.daily_quote.quote
             author_control.value = data.daily_quote.author
             source_control.value = data.daily_quote.source
+        else:
+            quote_control.visible = False
 
         page.update()
-    
+
     def launch_update_data(_):
         page.run_task(update_data)
-        print("data updated")
 
     def gesture_sensor_daemon_thread():
         import platform
+
         if platform.system() != "Linux":
             return
-        print("gesture_sensor")
         from gesture_sensor import GestureSensor
+
         gs = GestureSensor(launch_update_data)
         gs.start()
 
-    def people_detection_daemon_thread():
+    def face_detection_daemon_thread():
         camera = Camera()
+        FACE_AREA = 75000
         while True:
-            image = camera.picam2.capture_image()
-            result = camera.predict_face(image)
-            print(result)
+            results = camera.predict_face(camera.capture_image())
+            if results.face_count > 0:
+                max_face = max(results.faces, key=lambda x: x.w * x.h)
+                f = max_face.w * max_face.h
+                if f > FACE_AREA:
+                    logging.info("Face detected")
+                    result = DataModel(**http_client.get())
+                    logging.info(result.inspiration)
+            sleep(0.1)
 
     page.run_task(update_data)
     page.run_thread(gesture_sensor_daemon_thread)
-    page.run_thread(people_detection_daemon_thread)
+    page.run_thread(face_detection_daemon_thread)
 
     # Add logo image at the top
     logo_img = ft.Image(
@@ -127,15 +143,20 @@ def main(page: ft.Page):
 
     # Header with title and logo (logo on the right, closer to text)
     header = ft.Container(
-        ft.Row([
-            ft.Text(
-                "Muse Deck",
-                style="displayMedium",
-                weight="bold",
-                color=ft.Colors.BLUE_900,
-            ),
-            logo_img,
-        ], spacing=8, alignment=ft.MainAxisAlignment.CENTER, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+        ft.Row(
+            [
+                ft.Text(
+                    "Muse Deck",
+                    style="displayMedium",
+                    weight="bold",
+                    color=ft.Colors.BLUE_900,
+                ),
+                logo_img,
+            ],
+            spacing=8,
+            alignment=ft.MainAxisAlignment.CENTER,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
         alignment=ft.alignment.center,
         padding=20,
         margin=ft.margin.only(bottom=10),
@@ -181,26 +202,6 @@ def main(page: ft.Page):
         height=CARD_HEIGHT,
     )
 
-    inspiration_section = ft.Container(
-        ft.Column(
-            [
-                inspiration_title_control,
-                inspiration_content_control,
-                inspiration_source_control,
-            ],
-            spacing=8,
-        ),
-        padding=20,
-        bgcolor=ft.Colors.WHITE,
-        border_radius=16,
-        shadow=ft.BoxShadow(
-            blur_radius=12, color=ft.Colors.TEAL_100, offset=ft.Offset(0, 4)
-        ),
-        expand=True,
-        margin=ft.margin.only(bottom=10),
-        height=CARD_HEIGHT,
-    )
-
     daily_quote_section = ft.Container(
         ft.Column(
             [
@@ -233,7 +234,6 @@ def main(page: ft.Page):
             [
                 calendar_section,
                 recipe_section,
-                inspiration_section,
                 daily_quote_section,
             ],
             spacing=20,
@@ -244,4 +244,4 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    ft.app(target=main, assets_dir="assets",port=9000)
+    ft.app(target=main, assets_dir="assets", port=9000)
