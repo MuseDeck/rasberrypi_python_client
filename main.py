@@ -5,7 +5,9 @@ from http_client import HTTP_Client
 from mqtt_client import MQTT_Client
 from adptars import DataModel
 from camera import Camera
-from time import sleep,time
+from time import sleep, time
+from typing import List
+from adptars import DailyQuote
 
 
 def main(page: ft.Page):
@@ -48,9 +50,7 @@ def main(page: ft.Page):
                     controls=[
                         header,
                         ft.Row(
-                            [
-                                
-                            ],
+                            [],
                             spacing=20,
                             expand=True,
                             alignment=ft.MainAxisAlignment.START,
@@ -61,7 +61,7 @@ def main(page: ft.Page):
                     scroll=ft.ScrollMode.AUTO,
                 )
             )
-        
+
         if page.route == "/favorites":
             page.views.append(
                 ft.View(
@@ -69,9 +69,7 @@ def main(page: ft.Page):
                     controls=[
                         header,
                         ft.Row(
-                            [
-                                
-                            ],
+                            [],
                             spacing=20,
                             expand=True,
                             alignment=ft.MainAxisAlignment.START,
@@ -138,8 +136,8 @@ def main(page: ft.Page):
     source_control = ft.Text(f"Source: source", size=12, color=ft.Colors.AMBER_400)
     http_client = HTTP_Client()
     mqtt_client = MQTT_Client(
-        inspiration_action = lambda: page.run_task(popover_insprition_card),
-        settings_action = lambda: page.run_task(update_data),
+        inspiration_action=lambda: page.run_task(popover_insprition_card),
+        settings_action=lambda: page.run_task(update_data),
     )
     page.run_thread(mqtt_client.run)
     mqtt_client.run
@@ -177,13 +175,16 @@ def main(page: ft.Page):
 
         page.update()
 
+    daily_quote_list: List[DailyQuote] = []
+    daily_quote_list_index = -1
+
     def on_gesture_changed(gesture_name):
         if banner.open:
             page.close(banner)
             return
-        
+        nonlocal daily_quote_list,daily_quote_list_index
         logging.info(f"Gesture: {gesture_name}")
-        
+
         match gesture_name:
             case "Right":
                 match page.route:
@@ -196,7 +197,7 @@ def main(page: ft.Page):
                     case "/favorites":
                         page.go("/overview")
                         return
-            
+
             case "Left":
                 match page.route:
                     case "/overview":
@@ -209,19 +210,41 @@ def main(page: ft.Page):
                         page.go("/overview")
                         return
 
+        if page.route == "/overview":
+            match gesture_name:
+                case "Up":
+                    daily_quote_list_index -= 1
+                    try:
+                        daily_quote = daily_quote_list[daily_quote_list_index]
+                    except IndexError:
+                        daily_quote_list_index += 1
+                        return
+                    quote_control.value = daily_quote.quote
+                    author_control.value = daily_quote.author
+                    source_control.value = daily_quote.source
 
-        match gesture_name:
-            case "Up":
-                pass
-            case "Down":
-                data = DataModel(**http_client.get())
-                if data.daily_quote:
-                    quote_control.value = data.daily_quote.quote
-                    author_control.value = data.daily_quote.author
-                    source_control.value = data.daily_quote.source
-                else:
-                    quote_control.visible = False
-                page.update()
+                case "Down":
+                    if daily_quote_list_index == -1:
+                        data = DataModel(**http_client.get())
+                        if daily_quote := data.daily_quote:
+                            quote_control.value = data.daily_quote.quote
+                            author_control.value = data.daily_quote.author
+                            source_control.value = data.daily_quote.source
+                            daily_quote_list.append(daily_quote)
+                            logging.info(daily_quote_list)
+                        else:
+                            quote_control.visible = False
+                    else:
+                        daily_quote_list_index += 1
+                        try:
+                            daily_quote = daily_quote_list[daily_quote_list_index]
+                            quote_control.value = daily_quote.quote
+                            author_control.value = daily_quote.author
+                            source_control.value = daily_quote.source
+                        except IndexError:
+                            daily_quote_list_index -= 1
+
+            page.update()
 
         page.run_task(update_data)
 
@@ -237,34 +260,28 @@ def main(page: ft.Page):
         gs = GestureSensor(lambda x: on_gesture_changed(x))
         gs.start()
 
-    watching = False
-
     def face_detection_daemon_thread():
-        nonlocal watching
         camera = Camera()
         FACE_AREA = 100000
         while True:
             if not banner.open:
                 continue
-            sleep(3)
+            sleep(5)
             result = camera.predict_face(camera.capture_image())
             if result.face_count > 0:
                 max_face = max(result.faces, key=lambda x: x.w * x.h)
                 max_face_area = max_face.w * max_face.h
                 if max_face_area > FACE_AREA:
-                    watching = True
                     logging.info("Detected face")
                 else:
-                    watching = False
                     logging.info("No Detecting face")
                     if banner.open:
                         page.close(banner)
             else:
-                watching = False
                 logging.info("No Detecting face")
                 if banner.open:
                     page.close(banner)
-            sleep(3)
+            sleep(5)
 
     logo_img = ft.Image(
         src="logo.png",
@@ -276,7 +293,7 @@ def main(page: ft.Page):
     header = ft.Container(
         ft.Row(
             [
-                title_control:=ft.Text(
+                title_control := ft.Text(
                     "Muse Deck",
                     style="displayMedium",
                     weight="bold",
