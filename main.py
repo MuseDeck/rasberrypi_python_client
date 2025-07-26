@@ -1,9 +1,11 @@
 import flet as ft
 import logging
+import asyncio
 from http_client import HTTP_Client
+from mqtt_client import MQTT_Client
 from adptars import DataModel
 from camera import Camera
-from time import sleep
+from time import sleep,time
 
 
 def main(page: ft.Page):
@@ -16,7 +18,7 @@ def main(page: ft.Page):
 
     def route_change(e):
         page.views.clear()
-        if page.route == "/overview" or page.route == "/":
+        if page.route == "/overview":
             page.views.append(
                 ft.View(
                     "/overview",
@@ -37,7 +39,7 @@ def main(page: ft.Page):
             page.run_task(update_data)
             page.run_thread(gesture_sensor_daemon_thread, page)
             page.run_thread(face_detection_daemon_thread)
-        
+
         page.update()
 
     calendar_title_control = ft.Text(
@@ -66,10 +68,38 @@ def main(page: ft.Page):
         color=ft.Colors.PINK_900,
     )
 
+    async def popover_insprition_card():
+        model = DataModel(**(await http_client.get_async()))
+        inspiration_banner_column.controls = [
+            ft.Text(
+                model.inspiration.title,
+                size=20,
+                color=ft.Colors.BLUE_GREY_900,
+            ),
+            ft.Text(
+                model.inspiration.content,
+                size=20,
+                color=ft.Colors.BLUE_GREY_900,
+            ),
+            ft.Text(
+                model.inspiration.source,
+                size=20,
+                color=ft.Colors.BLUE_GREY_900,
+            ),
+        ]
+        page.update()
+        page.open(banner)
+
     quote_control = ft.Text(f"quote", italic=True, size=16, color=ft.Colors.AMBER_900)
     author_control = ft.Text(f"- author", size=14, color=ft.Colors.AMBER_700)
     source_control = ft.Text(f"Source: source", size=12, color=ft.Colors.AMBER_400)
     http_client = HTTP_Client()
+    mqtt_client = MQTT_Client(
+        inspiration_action = lambda: page.run_task(popover_insprition_card),
+        settings_action = lambda: page.run_task(update_data),
+    )
+    page.run_thread(mqtt_client.run)
+    mqtt_client.run
 
     async def update_data():
         result = await http_client.get_async()
@@ -104,40 +134,74 @@ def main(page: ft.Page):
 
         page.update()
 
-    def launch_update_data(_):
-        page.close(banner)
+    def on_gesture_changed(gesture_name):
+        if banner.open:
+            page.close(banner)
+            return
+        logging.info(f"Gesture: {gesture_name}")
+
+        if page.route == "/overview":
+            match gesture_name:
+                case "Up":
+                    data = DataModel(**http_client.get())
+                    if data.daily_quote:
+                        quote_control.value = data.daily_quote.quote
+                        author_control.value = data.daily_quote.author
+                        source_control.value = data.daily_quote.source
+                    else:
+                        quote_control.visible = False
+                    page.update()
+                case "Down":
+                    pass
+                case "Forward":
+                    pass
+                case "Left":
+                    pass
+                case "Right":
+                    pass
+
         page.run_task(update_data)
 
     def gesture_sensor_daemon_thread(page):
         logging.info("gesture_sensor init")
         import platform
+
         if platform.system() != "Linux":
             return
         logging.info("gesture_sensor start")
         from gesture_sensor import GestureSensor
-        gs = GestureSensor(lambda _: launch_update_data(None))
+
+        gs = GestureSensor(lambda x: on_gesture_changed(x))
         gs.start()
 
+    watching = False
+
     def face_detection_daemon_thread():
+        nonlocal watching
         camera = Camera()
         FACE_AREA = 100000
         while True:
+            if not banner.open:
+                continue
+            sleep(3)
             result = camera.predict_face(camera.capture_image())
             if result.face_count > 0:
                 max_face = max(result.faces, key=lambda x: x.w * x.h)
                 max_face_area = max_face.w * max_face.h
                 if max_face_area > FACE_AREA:
-                    model = DataModel(**http_client.get())
-                    inspiration_banner_column.controls = [
-                        ft.Text(model.inspiration.title, size=20),
-                        ft.Text(model.inspiration.content, size=20),
-                        ft.Text(model.inspiration.source, size=20),
-                    ]
-                    # 更新banner内容后需要更新页面
-                    page.update()
-                    page.open(banner)
-
-            sleep(0.1)
+                    watching = True
+                    logging.info("Detected face")
+                else:
+                    watching = False
+                    logging.info("No Detecting face")
+                    if banner.open:
+                        page.close(banner)
+            else:
+                watching = False
+                logging.info("No Detecting face")
+                if banner.open:
+                    page.close(banner)
+            sleep(3)
 
     logo_img = ft.Image(
         src="logo.png",
@@ -154,16 +218,15 @@ def main(page: ft.Page):
                     style="displayMedium",
                     weight="bold",
                     color=ft.Colors.BLUE_900,
+                    size=32,
                 ),
                 logo_img,
             ],
-            spacing=8,
             alignment=ft.MainAxisAlignment.CENTER,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         ),
         alignment=ft.alignment.center,
-        padding=20,
-        margin=ft.margin.only(bottom=10),
+        padding=5,
         bgcolor=ft.Colors.WHITE,
         border_radius=20,
         shadow=ft.BoxShadow(
@@ -245,7 +308,6 @@ def main(page: ft.Page):
         ],
     )
 
-    # 将banner添加到页面中，解决"banner must be added into page first"错误
     page.overlay.append(banner)
 
     page.on_route_change = route_change

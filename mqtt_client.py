@@ -19,29 +19,39 @@ assert mqtt_password is not None
 
 
 class MQTT_Client:
-    def __init__(self):
+    def __init__(self, inspiration_action, settings_action):
         self.client = mqtt.Client()
         self.client.username_pw_set(mqtt_username, mqtt_password)
         self.client.tls_set(
             ca_certs=None, certfile=None, keyfile=None, cert_reqs=ssl.CERT_REQUIRED
         )
+        self.inspiration_action = inspiration_action
+        self.settings_action = settings_action
         self.settings_topic = "sui-lan/config/update"
+        self.inspiration_topic = "sui-lan/inspiration/new"
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
             logging.info("😀successfully connected to broker")
-            client.subscribe(self.settings_topic)
+            self.client.subscribe(self.settings_topic)
+            self.client.subscribe(self.inspiration_topic)
         else:
             logging.info(f"🤡connection failed with result code {rc}")
 
     def on_message(self, client, userdata, msg):
-        logging(f"🧑received [{msg.topic}]: {msg.payload.decode()}")
+        if msg.topic == self.settings_topic:
+            logging.info(f"settings updated")
+            self.settings_action()
+        elif msg.topic == self.inspiration_topic:
+            logging.info(f"inspiration received")
+            self.inspiration_action()
 
     def publish_message(self, topic, message):
         self.client.publish(topic, message)
         logging.info(f"🧙pulished message [{topic}]: {message}")
 
     def run(self):
+        logging.info("starting mqtt client")
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         self.client.connect(broker_url, broker_port, 60)
@@ -50,5 +60,8 @@ class MQTT_Client:
 
 if __name__ == "__main__":
     # simple test
-    mqtt = MQTT_Client()
-    mqtt.run()
+    mqtt_client = MQTT_Client(
+        inspiration_action=lambda: logging.info("inspiration"),
+        settings_action=lambda: logging.info("settings"),
+    )
+    mqtt_client.run()
