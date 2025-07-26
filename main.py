@@ -8,6 +8,7 @@ from camera import Camera
 from time import sleep, time
 from typing import List
 from adptars import DailyQuote
+from db import DB
 
 
 def main(page: ft.Page):
@@ -63,13 +64,41 @@ def main(page: ft.Page):
             )
 
         if page.route == "/favorites":
+            quotes = db.get_all_daily_quote_to_favorite()
+            logging.info(quotes)
             page.views.append(
                 ft.View(
                     "/favorites",
                     controls=[
                         header,
                         ft.Row(
-                            [],
+                            [ft.Card(
+                                content=ft.Container(
+                                    ft.Column(
+                                        [
+                                            ft.Text(
+                                                quote.quote,
+                                                italic=True,
+                                                size=16,
+                                                color=ft.Colors.AMBER_900,
+                                            ),
+                                            ft.Text(
+                                                f"- {quote.author}",
+                                                size=14,
+                                                color=ft.Colors.AMBER_700,
+                                            ),
+                                            ft.Text(
+                                                f"Source: {quote.source}",
+                                                size=12,
+                                                color=ft.Colors.AMBER_400,
+                                            ),
+                                        ],
+                                        spacing=8,
+                                    ),
+                                    padding=20,
+                                ),
+                                expand=True,
+                            ) for quote in quotes],
                             spacing=20,
                             expand=True,
                             alignment=ft.MainAxisAlignment.START,
@@ -177,12 +206,13 @@ def main(page: ft.Page):
 
     daily_quote_list: List[DailyQuote] = []
     daily_quote_list_index = -1
+    db = DB()
 
     def on_gesture_changed(gesture_name):
         if banner.open:
             page.close(banner)
             return
-        nonlocal daily_quote_list,daily_quote_list_index
+        nonlocal daily_quote_list, daily_quote_list_index
         logging.info(f"Gesture: {gesture_name}")
 
         match gesture_name:
@@ -243,6 +273,13 @@ def main(page: ft.Page):
                             source_control.value = daily_quote.source
                         except IndexError:
                             daily_quote_list_index -= 1
+
+                case "Forward":
+                    # 收藏
+                    quote = daily_quote_list[daily_quote_list_index]
+                    db.add_daily_quote_to_favorite(quote)
+                    page.open(ft.SnackBar(ft.Text("收藏成功")))
+                    page.update()
 
             page.update()
 
