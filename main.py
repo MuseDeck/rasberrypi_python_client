@@ -1,10 +1,9 @@
 import flet as ft
+import logging
 from http_client import HTTP_Client
 from adptars import DataModel
 from camera import Camera
 from time import sleep
-import logging
-
 
 def main(page: ft.Page):
     page.title = "Muse Deck"
@@ -86,13 +85,6 @@ def main(page: ft.Page):
         else:
             recipe_section.visible = False
 
-        # if data.inspiration:
-        #     inspiration_title_control.value = data.inspiration.title
-        #     inspiration_content_control.value = data.inspiration.content
-        #     inspiration_source_control.value = data.inspiration.source
-        # else:
-        #     inspiration_section.visible = False
-
         if data.daily_quote:
             quote_control.value = data.daily_quote.quote
             author_control.value = data.daily_quote.author
@@ -104,12 +96,14 @@ def main(page: ft.Page):
 
     def launch_update_data(_):
         page.run_task(update_data)
+        print("data updated")
 
     def gesture_sensor_daemon_thread():
         import platform
 
         if platform.system() != "Linux":
             return
+        print("gesture_sensor")
         from gesture_sensor import GestureSensor
 
         gs = GestureSensor(launch_update_data)
@@ -117,16 +111,16 @@ def main(page: ft.Page):
 
     def face_detection_daemon_thread():
         camera = Camera()
-        FACE_AREA = 75000
+        FACE_AREA = 100000
         while True:
-            results = camera.predict_face(camera.capture_image())
-            if results.face_count > 0:
-                max_face = max(results.faces, key=lambda x: x.w * x.h)
-                f = max_face.w * max_face.h
-                if f > FACE_AREA:
-                    logging.info("Face detected")
-                    result = DataModel(**http_client.get())
-                    logging.info(result.inspiration)
+            result = camera.predict_face(camera.capture_image())
+            if result.face_count > 0:
+                max_face = max(result.faces, key=lambda x: x.w * x.h)
+                max_face_area = max_face.w * max_face.h
+                if max_face_area > FACE_AREA:
+                    dlg_modal.open = True
+                    dlg_modal.update()
+            
             sleep(0.1)
 
     page.run_task(update_data)
@@ -228,14 +222,16 @@ def main(page: ft.Page):
         height=CARD_HEIGHT,
     )
 
+    dlg_modal = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Please confirm"),
+        content=ft.Text("Do you really want to delete all those files?"),
+    )
+
     page.add(
         header,
         ft.Row(
-            [
-                calendar_section,
-                recipe_section,
-                daily_quote_section,
-            ],
+            [calendar_section, recipe_section, daily_quote_section, dlg_modal],
             spacing=20,
             expand=True,
             alignment=ft.MainAxisAlignment.START,
